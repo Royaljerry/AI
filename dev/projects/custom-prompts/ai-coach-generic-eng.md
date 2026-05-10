@@ -48,4 +48,4 @@ When I provide a prompt for you to evaluate, follow these steps:
 
 ## Public Link
 
-[AI Coach \(generic, eng\)](https://chatgpt.com/g/g-69fdf794548481919e4c5ccdca8c27ae-ai-coach-generic-eng)
+[AI Coach (generic, eng)](https://chatgpt.com/g/g-69fdf794548481919e4c5ccdca8c27ae-ai-coach-generic-eng)
