@@ -12,6 +12,13 @@
             return;
         }
 
+        if (settings.backgroundEnabled) {
+            settings.backgroundColor = askBackgroundColor(rgbColorFromHex("#FFFFFF"));
+            if (!settings.backgroundColor) {
+                return;
+            }
+        }
+
         app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
 
         var COLS = settings.cols;
@@ -36,6 +43,10 @@
 
         var layer = doc.activeLayer;
         layer.name = "Random Ring Matrix";
+
+        if (settings.backgroundEnabled) {
+            drawBackground(doc, WIDTH, HEIGHT, settings.backgroundColor);
+        }
 
         for (var row = 0; row < ROWS; row++) {
             for (var col = 0; col < COLS; col++) {
@@ -91,6 +102,21 @@
             "28",
             "Padding around the full matrix, from 0 to 1000 pixels."
         );
+
+        var backgroundPanel = dialog.add("panel", undefined, "Background");
+        backgroundPanel.alignChildren = ["fill", "top"];
+        backgroundPanel.margins = 14;
+
+        var backgroundEnabledField = backgroundPanel.add("checkbox", undefined, "Create a background behind the circles");
+        backgroundEnabledField.value = false;
+
+        var backgroundHelp = backgroundPanel.add(
+            "statictext",
+            undefined,
+            "If enabled, the color picker opens after you click OK.",
+            { multiline: true }
+        );
+        backgroundHelp.preferredSize.width = 430;
 
         var buttons = dialog.add("group");
         buttons.alignment = ["right", "top"];
@@ -153,7 +179,9 @@
                 rows: matrixSize.rows,
                 circleCount: circleCount,
                 gap: gap,
-                padding: padding
+                padding: padding,
+                backgroundEnabled: backgroundEnabledField.value,
+                backgroundColor: null
             };
             dialog.close(1);
         };
@@ -161,6 +189,10 @@
         matrixField.active = true;
         dialog.show();
         return result;
+    }
+
+    function askBackgroundColor(defaultColor) {
+        return pickRGBColor(defaultColor);
     }
 
     function applyPixelPresetOptions(preset) {
@@ -185,6 +217,19 @@
         try {
             doc.rulerUnits = RulerUnits.Pixels;
         } catch (errRulerUnits) {}
+    }
+
+    function drawBackground(doc, width, height, fillColor) {
+        var backgroundLayer = doc.layers.add();
+        backgroundLayer.name = "Background";
+        backgroundLayer.zOrder(ZOrderMethod.SENDTOBACK);
+
+        var rect = backgroundLayer.pathItems.rectangle(height, 0, width, height);
+        rect.filled = true;
+        rect.fillColor = fillColor;
+        rect.stroked = false;
+        rect.name = "Background";
+        rect.locked = true;
     }
 
     function addField(parent, label, defaultValue, helpText) {
@@ -355,6 +400,87 @@
         color.green = randomInt(20, 245);
         color.blue = randomInt(20, 245);
         return color;
+    }
+
+    function pickRGBColor(currentColor) {
+        if (app.showColorPicker) {
+            try {
+                return app.showColorPicker(currentColor);
+            } catch (errShowColorPicker) {}
+        }
+
+        if (typeof $.colorPicker === "function") {
+            try {
+                var pickedValue = $.colorPicker(rgbColorToNumber(currentColor));
+
+                if (pickedValue >= 0) {
+                    return rgbColorFromNumber(pickedValue);
+                }
+            } catch (errColorPicker) {}
+        }
+
+        alert("No compatible color picker is available in this environment.");
+        return null;
+    }
+
+    function rgbColorFromNumber(value) {
+        var color = new RGBColor();
+
+        color.red = (value >> 16) & 255;
+        color.green = (value >> 8) & 255;
+        color.blue = value & 255;
+        return color;
+    }
+
+    function rgbColorToNumber(color) {
+        return (clampColorValue(color.red) << 16) +
+            (clampColorValue(color.green) << 8) +
+            clampColorValue(color.blue);
+    }
+
+    function rgbColorFromHex(value) {
+        value = trim(String(value)).replace(/^#/, "");
+
+        if (!/^[0-9a-fA-F]{6}$/.test(value)) {
+            return null;
+        }
+
+        var color = new RGBColor();
+        color.red = parseInt(value.substr(0, 2), 16);
+        color.green = parseInt(value.substr(2, 2), 16);
+        color.blue = parseInt(value.substr(4, 2), 16);
+        return color;
+    }
+
+    function rgbColorToHex(color) {
+        return "#" +
+            colorByteToHex(color.red) +
+            colorByteToHex(color.green) +
+            colorByteToHex(color.blue);
+    }
+
+    function colorByteToHex(value) {
+        var hex = clampColorValue(value).toString(16).toUpperCase();
+
+        return hex.length < 2 ? "0" + hex : hex;
+    }
+
+    function clampColorValue(value) {
+        value = Math.round(Number(value));
+
+        if (isNaN(value)) {
+            return 0;
+        }
+
+        if (value < 0) {
+            return 0;
+        }
+
+        if (value > 255) {
+            return 255;
+        }
+
+        return value;
     }
 
     function randomInt(min, max) {
