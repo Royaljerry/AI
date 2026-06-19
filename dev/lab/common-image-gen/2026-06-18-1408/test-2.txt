@@ -1,0 +1,7 @@
+A psychedelic, but black-and-white chaotic image in the sense of “Undefined is not an object”. The theme is the space, the Universe, maybe aliens. Do not use common surrealistic or cheezy imagery, rather be more abstract.
+
+Avoid:
+- any texts
+- any simmetry
+
+The image aspect ratio should be square (1:1)
