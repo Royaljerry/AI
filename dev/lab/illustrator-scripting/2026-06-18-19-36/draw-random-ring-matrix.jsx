@@ -60,8 +60,14 @@
                 var cx = COLUMN_CENTERS[col];
                 var cy = HEIGHT - MARGIN - MAX_OUTER_RADIUS - row * ROW_CELL;
                 var radii = buildRadii(OUTER_RADII[col], settings.shapeCount);
+                var rotationAngle = calculateRowRotationAngle(
+                    col,
+                    COLS,
+                    settings.rotationEnabled,
+                    settings.rotationAngle
+                );
 
-                drawItem(layer, cx, cy, radii, settings.shapeType);
+                drawItem(layer, cx, cy, radii, settings.shapeType, rotationAngle);
             }
         }
 
@@ -145,6 +151,32 @@
             dynamicAmountField.enabled = dynamicEnabledField.value;
         };
 
+        var rotationPanel = dialog.add("panel", undefined, "Rotation");
+        rotationPanel.alignChildren = ["fill", "top"];
+        rotationPanel.margins = 14;
+
+        var rotationEnabledField = rotationPanel.add("checkbox", undefined, "Use row rotation");
+        rotationEnabledField.value = false;
+
+        var rotationHelpText = wrapText(
+            "Items rotate from 0 degrees near each row edge to the full angle near the row center.",
+            60
+        );
+        var rotationHelp = rotationPanel.add("statictext", undefined, rotationHelpText, { multiline: true });
+        rotationHelp.preferredSize.width = 430;
+        rotationHelp.preferredSize.height = countLines(rotationHelpText) * 17;
+
+        var rotationAngleField = addField(
+            rotationPanel,
+            "Angle, deg",
+            "20",
+            "Maximum rotation angle at the row center, from -180 to 180 degrees."
+        );
+        rotationAngleField.enabled = false;
+        rotationEnabledField.onClick = function () {
+            rotationAngleField.enabled = rotationEnabledField.value;
+        };
+
         var backgroundPanel = dialog.add("panel", undefined, "Background");
         backgroundPanel.alignChildren = ["fill", "top"];
         backgroundPanel.margins = 14;
@@ -176,6 +208,8 @@
             var padding = parseNumber(paddingField.text);
             var dynamicEnabled = dynamicEnabledField.value;
             var dynamicAmount = parseNumber(dynamicAmountField.text);
+            var rotationEnabled = rotationEnabledField.value;
+            var rotationAngle = parseSignedNumber(rotationAngleField.text);
 
             if (!matrixSize || !isValidDimension(matrixSize.cols, MAX_DIMENSION) || !isValidDimension(matrixSize.rows, MAX_DIMENSION)) {
                 alert("Matrix size must be like 10x10 or 12. Each dimension must be from 1 to " + MAX_DIMENSION + ".");
@@ -211,6 +245,16 @@
                 dynamicAmount = 0;
             }
 
+            if (rotationEnabled && (rotationAngle === null || rotationAngle < -180 || rotationAngle > 180)) {
+                alert("Rotation angle must be a number from -180 to 180 degrees.");
+                rotationAngleField.active = true;
+                return;
+            }
+
+            if (!rotationEnabled) {
+                rotationAngle = 0;
+            }
+
             var outerRadii = buildOuterRadii(matrixSize.cols, OUTER_RADIUS, dynamicEnabled, dynamicAmount);
             var width = calculateMatrixWidth(outerRadii, gap, padding);
             var height = calculateMatrixHeight(matrixSize.rows, maxNumber(outerRadii), gap, padding);
@@ -238,6 +282,8 @@
                 padding: padding,
                 dynamicEnabled: dynamicEnabled,
                 dynamicAmount: dynamicAmount,
+                rotationEnabled: rotationEnabled,
+                rotationAngle: rotationAngle,
                 backgroundEnabled: backgroundEnabledField.value,
                 backgroundColor: null
             };
@@ -441,9 +487,25 @@
         var amount = dynamicAmount / 100;
         var minScale = 1 - amount;
         var maxScale = 1 + amount;
-        var wave = Math.sin((col / (cols - 1)) * Math.PI);
+        var wave = calculateRowWave(col, cols);
 
         return minScale + (maxScale - minScale) * wave;
+    }
+
+    function calculateRowRotationAngle(col, cols, rotationEnabled, rotationAngle) {
+        if (!rotationEnabled || rotationAngle === 0 || cols < 3) {
+            return 0;
+        }
+
+        return rotationAngle * calculateRowWave(col, cols);
+    }
+
+    function calculateRowWave(col, cols) {
+        if (cols < 3) {
+            return 0;
+        }
+
+        return Math.sin((col / (cols - 1)) * Math.PI);
     }
 
     function calculateMatrixWidth(outerRadii, gap, padding) {
@@ -504,7 +566,7 @@
         return radii;
     }
 
-    function drawItem(layer, cx, cy, radii, shapeType) {
+    function drawItem(layer, cx, cy, radii, shapeType, rotationAngle) {
         var group = layer.groupItems.add();
         group.name = "Nested Shape Item";
 
@@ -523,6 +585,10 @@
 
         for (var j = 0; j < radii.length; j++) {
             drawShape(group, shapeType, centers[j].x, centers[j].y, radii[j], randomRGBColor());
+        }
+
+        if (rotationAngle !== 0) {
+            group.rotate(rotationAngle);
         }
     }
 
@@ -759,6 +825,15 @@
     function parseNumber(value) {
         value = trim(String(value));
         if (!/^\d+(\.\d+)?$/.test(value)) {
+            return null;
+        }
+
+        return parseFloat(value);
+    }
+
+    function parseSignedNumber(value) {
+        value = trim(String(value));
+        if (!/^-?\d+(\.\d+)?$/.test(value)) {
             return null;
         }
 
