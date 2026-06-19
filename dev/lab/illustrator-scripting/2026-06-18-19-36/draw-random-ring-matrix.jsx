@@ -1,4 +1,4 @@
-// Draws a user-sized matrix of randomly colored, slightly perturbed ring items.
+// Draws a user-sized matrix of randomly colored, nested shape items.
 // Run in Adobe Illustrator via File > Scripts > Other Script.
 
 (function () {
@@ -29,7 +29,7 @@
         var CELL = OUTER_RADIUS * 2 + GAP;
         var WIDTH = MARGIN * 2 + COLS * OUTER_RADIUS * 2 + (COLS - 1) * GAP;
         var HEIGHT = MARGIN * 2 + ROWS * OUTER_RADIUS * 2 + (ROWS - 1) * GAP;
-        var RADII = buildRadii(OUTER_RADIUS, settings.circleCount);
+        var RADII = buildRadii(OUTER_RADIUS, settings.shapeCount);
 
         var preset = new DocumentPreset();
         preset.width = WIDTH;
@@ -42,7 +42,7 @@
         doc.rulerOrigin = [0, 0];
 
         var layer = doc.activeLayer;
-        layer.name = "Random Ring Matrix";
+        layer.name = "Random Shape Matrix";
 
         if (settings.backgroundEnabled) {
             drawBackground(doc, WIDTH, HEIGHT, settings.backgroundColor);
@@ -52,7 +52,7 @@
             for (var col = 0; col < COLS; col++) {
                 var cx = MARGIN + OUTER_RADIUS + col * CELL;
                 var cy = HEIGHT - MARGIN - OUTER_RADIUS - row * CELL;
-                drawItem(layer, cx, cy, RADII);
+                drawItem(layer, cx, cy, RADII, settings.shapeType);
             }
         }
 
@@ -69,7 +69,7 @@
         var MAX_CANVAS_PIXELS = 16348;
         var OUTER_RADIUS = 28;
         var result = null;
-        var dialog = new Window("dialog", "Random Ring Matrix Settings");
+        var dialog = new Window("dialog", "Random Shape Matrix Settings");
 
         dialog.alignChildren = ["fill", "top"];
         dialog.margins = 16;
@@ -78,15 +78,22 @@
         fieldsPanel.alignChildren = ["fill", "top"];
         fieldsPanel.margins = 14;
 
+        var shapeField = addDropdown(
+            fieldsPanel,
+            "Shape",
+            ["Circles", "Squares", "Triangles"],
+            0,
+            "Choose the item shape to nest."
+        );
         var matrixField = addField(
             fieldsPanel,
             "Matrix size",
             "10x10",
             "Use columns x rows, or one number for a square matrix."
         );
-        var circleCountField = addField(
+        var shapeCountField = addField(
             fieldsPanel,
-            "Circles per item",
+            "Shapes per item",
             "4",
             "Whole number from 1 to 20."
         );
@@ -107,7 +114,7 @@
         backgroundPanel.alignChildren = ["fill", "top"];
         backgroundPanel.margins = 14;
 
-        var backgroundEnabledField = backgroundPanel.add("checkbox", undefined, "Create a background behind the circles");
+        var backgroundEnabledField = backgroundPanel.add("checkbox", undefined, "Create a background behind the shapes");
         backgroundEnabledField.value = false;
 
         var backgroundHelp = backgroundPanel.add(
@@ -129,7 +136,7 @@
 
         okButton.onClick = function () {
             var matrixSize = parseMatrixSize(matrixField.text);
-            var circleCount = parseWholeNumber(circleCountField.text);
+            var shapeCount = parseWholeNumber(shapeCountField.text);
             var gap = parseNumber(gapField.text);
             var padding = parseNumber(paddingField.text);
 
@@ -139,9 +146,9 @@
                 return;
             }
 
-            if (circleCount === null || circleCount < 1 || circleCount > 20) {
-                alert("Circles per item must be a whole number from 1 to 20.");
-                circleCountField.active = true;
+            if (shapeCount === null || shapeCount < 1 || shapeCount > 20) {
+                alert("Shapes per item must be a whole number from 1 to 20.");
+                shapeCountField.active = true;
                 return;
             }
 
@@ -177,7 +184,8 @@
             result = {
                 cols: matrixSize.cols,
                 rows: matrixSize.rows,
-                circleCount: circleCount,
+                shapeType: getSelectedShapeType(shapeField),
+                shapeCount: shapeCount,
                 gap: gap,
                 padding: padding,
                 backgroundEnabled: backgroundEnabledField.value,
@@ -251,6 +259,42 @@
         help.preferredSize.height = countLines(wrappedHelpText) * HELP_LINE_HEIGHT;
 
         return input;
+    }
+
+    function addDropdown(parent, label, items, selectedIndex, helpText) {
+        var HELP_WIDTH = 260;
+        var HELP_WRAP_CHARS = 42;
+        var HELP_LINE_HEIGHT = 17;
+        var row = parent.add("group");
+        row.alignChildren = ["left", "top"];
+
+        var labelView = row.add("statictext", undefined, label);
+        labelView.preferredSize.width = 110;
+
+        var dropdown = row.add("dropdownlist", undefined, items);
+        dropdown.preferredSize.width = 118;
+        dropdown.selection = selectedIndex;
+
+        var wrappedHelpText = wrapText(helpText, HELP_WRAP_CHARS);
+        var help = row.add("statictext", undefined, wrappedHelpText, { multiline: true });
+        help.preferredSize.width = HELP_WIDTH;
+        help.preferredSize.height = countLines(wrappedHelpText) * HELP_LINE_HEIGHT;
+
+        return dropdown;
+    }
+
+    function getSelectedShapeType(dropdown) {
+        var value = dropdown.selection ? dropdown.selection.text : "Circles";
+
+        if (value === "Squares") {
+            return "square";
+        }
+
+        if (value === "Triangles") {
+            return "triangle";
+        }
+
+        return "circle";
     }
 
     function wrapText(text, maxChars) {
@@ -329,32 +373,32 @@
         };
     }
 
-    function buildRadii(outerRadius, circleCount) {
+    function buildRadii(outerRadius, shapeCount) {
         var radii = [];
         var innerRadius = outerRadius * 0.2;
 
-        if (circleCount === 1) {
+        if (shapeCount === 1) {
             return [outerRadius];
         }
 
-        for (var i = 0; i < circleCount; i++) {
-            var t = i / (circleCount - 1);
+        for (var i = 0; i < shapeCount; i++) {
+            var t = i / (shapeCount - 1);
             radii.push(outerRadius - (outerRadius - innerRadius) * t);
         }
 
         return radii;
     }
 
-    function drawItem(layer, cx, cy, radii) {
+    function drawItem(layer, cx, cy, radii, shapeType) {
         var group = layer.groupItems.add();
-        group.name = "Ring Item";
+        group.name = "Nested Shape Item";
 
         var centers = [{ x: cx, y: cy }];
 
         for (var i = 1; i < radii.length; i++) {
             var parentCenter = centers[i - 1];
             var maxOffset = radii[i - 1] - radii[i];
-            var offset = randomPointInDisk(maxOffset);
+            var offset = randomPointInsideShape(shapeType, maxOffset);
 
             centers[i] = {
                 x: parentCenter.x + offset.x,
@@ -363,8 +407,20 @@
         }
 
         for (var j = 0; j < radii.length; j++) {
-            drawCircle(group, centers[j].x, centers[j].y, radii[j], randomRGBColor());
+            drawShape(group, shapeType, centers[j].x, centers[j].y, radii[j], randomRGBColor());
         }
+    }
+
+    function drawShape(group, shapeType, cx, cy, radius, fillColor) {
+        if (shapeType === "square") {
+            return drawSquare(group, cx, cy, radius, fillColor);
+        }
+
+        if (shapeType === "triangle") {
+            return drawTriangle(group, cx, cy, radius, fillColor);
+        }
+
+        return drawCircle(group, cx, cy, radius, fillColor);
     }
 
     function drawCircle(group, cx, cy, radius, fillColor) {
@@ -379,6 +435,54 @@
         return circle;
     }
 
+    function drawSquare(group, cx, cy, radius, fillColor) {
+        var size = radius * 2;
+        var square = group.pathItems.rectangle(cy + radius, cx - radius, size, size);
+
+        square.filled = true;
+        square.fillColor = fillColor;
+        square.stroked = false;
+        return square;
+    }
+
+    function drawTriangle(group, cx, cy, radius, fillColor) {
+        var triangle = group.pathItems.add();
+
+        triangle.setEntirePath(buildTrianglePoints(cx, cy, radius));
+        triangle.closed = true;
+        triangle.filled = true;
+        triangle.fillColor = fillColor;
+        triangle.stroked = false;
+        return triangle;
+    }
+
+    function buildTrianglePoints(cx, cy, radius) {
+        var points = [];
+        var startAngle = Math.PI / 2;
+
+        for (var i = 0; i < 3; i++) {
+            var angle = startAngle + i * Math.PI * 2 / 3;
+            points.push([
+                cx + Math.cos(angle) * radius,
+                cy + Math.sin(angle) * radius
+            ]);
+        }
+
+        return points;
+    }
+
+    function randomPointInsideShape(shapeType, radius) {
+        if (shapeType === "square") {
+            return randomPointInSquare(radius);
+        }
+
+        if (shapeType === "triangle") {
+            return randomPointInTriangle(radius);
+        }
+
+        return randomPointInDisk(radius);
+    }
+
     function randomPointInDisk(radius) {
         if (radius <= 0) {
             return { x: 0, y: 0 };
@@ -391,6 +495,43 @@
             x: Math.cos(angle) * distance,
             y: Math.sin(angle) * distance
         };
+    }
+
+    function randomPointInSquare(radius) {
+        if (radius <= 0) {
+            return { x: 0, y: 0 };
+        }
+
+        return {
+            x: randomRange(-radius, radius),
+            y: randomRange(-radius, radius)
+        };
+    }
+
+    function randomPointInTriangle(radius) {
+        if (radius <= 0) {
+            return { x: 0, y: 0 };
+        }
+
+        var vertices = buildTrianglePoints(0, 0, radius);
+        var u = Math.random();
+        var v = Math.random();
+
+        if (u + v > 1) {
+            u = 1 - u;
+            v = 1 - v;
+        }
+
+        return {
+            x: interpolateTriangleCoordinate(vertices, u, v, 0),
+            y: interpolateTriangleCoordinate(vertices, u, v, 1)
+        };
+    }
+
+    function interpolateTriangleCoordinate(vertices, u, v, axis) {
+        return vertices[0][axis] +
+            u * (vertices[1][axis] - vertices[0][axis]) +
+            v * (vertices[2][axis] - vertices[0][axis]);
     }
 
     function randomRGBColor() {
@@ -485,6 +626,10 @@
 
     function randomInt(min, max) {
         return Math.floor(min + Math.random() * (max - min + 1));
+    }
+
+    function randomRange(min, max) {
+        return min + Math.random() * (max - min);
     }
 
     function parseWholeNumber(value) {
