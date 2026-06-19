@@ -26,10 +26,17 @@
         var OUTER_RADIUS = 28;
         var GAP = settings.gap;
         var MARGIN = settings.padding;
-        var CELL = OUTER_RADIUS * 2 + GAP;
-        var WIDTH = MARGIN * 2 + COLS * OUTER_RADIUS * 2 + (COLS - 1) * GAP;
-        var HEIGHT = MARGIN * 2 + ROWS * OUTER_RADIUS * 2 + (ROWS - 1) * GAP;
-        var RADII = buildRadii(OUTER_RADIUS, settings.shapeCount);
+        var OUTER_RADII = buildOuterRadii(
+            COLS,
+            OUTER_RADIUS,
+            settings.dynamicEnabled,
+            settings.dynamicAmount
+        );
+        var MAX_OUTER_RADIUS = maxNumber(OUTER_RADII);
+        var COLUMN_CENTERS = buildColumnCenters(OUTER_RADII, GAP, MARGIN);
+        var WIDTH = calculateMatrixWidth(OUTER_RADII, GAP, MARGIN);
+        var HEIGHT = calculateMatrixHeight(ROWS, MAX_OUTER_RADIUS, GAP, MARGIN);
+        var ROW_CELL = MAX_OUTER_RADIUS * 2 + GAP;
 
         var preset = new DocumentPreset();
         preset.width = WIDTH;
@@ -50,16 +57,18 @@
 
         for (var row = 0; row < ROWS; row++) {
             for (var col = 0; col < COLS; col++) {
-                var cx = MARGIN + OUTER_RADIUS + col * CELL;
-                var cy = HEIGHT - MARGIN - OUTER_RADIUS - row * CELL;
-                drawItem(layer, cx, cy, RADII, settings.shapeType);
+                var cx = COLUMN_CENTERS[col];
+                var cy = HEIGHT - MARGIN - MAX_OUTER_RADIUS - row * ROW_CELL;
+                var radii = buildRadii(OUTER_RADII[col], settings.shapeCount);
+
+                drawItem(layer, cx, cy, radii, settings.shapeType);
             }
         }
 
         app.redraw();
     } catch (err) {
         app.userInteractionLevel = UserInteractionLevel.DISPLAYALERTS;
-        alert("Could not draw ring matrix: " + err + (err && err.line ? " line " + err.line : ""));
+        alert("Could not draw shape matrix: " + err + (err && err.line ? " line " + err.line : ""));
     } finally {
         app.userInteractionLevel = previousInteractionLevel;
     }
@@ -110,6 +119,32 @@
             "Padding around the full matrix, from 0 to 1000 pixels."
         );
 
+        var dynamicsPanel = dialog.add("panel", undefined, "Row Dynamics");
+        dynamicsPanel.alignChildren = ["fill", "top"];
+        dynamicsPanel.margins = 14;
+
+        var dynamicEnabledField = dynamicsPanel.add("checkbox", undefined, "Use row dynamics");
+        dynamicEnabledField.value = false;
+
+        var dynamicHelpText = wrapText(
+            "Items become smaller near each row edge and larger near the row center.",
+            60
+        );
+        var dynamicHelp = dynamicsPanel.add("statictext", undefined, dynamicHelpText, { multiline: true });
+        dynamicHelp.preferredSize.width = 430;
+        dynamicHelp.preferredSize.height = countLines(dynamicHelpText) * 17;
+
+        var dynamicAmountField = addField(
+            dynamicsPanel,
+            "Amount, %",
+            "50",
+            "Edges shrink and the row center grows by this percentage, from 0 to 95."
+        );
+        dynamicAmountField.enabled = false;
+        dynamicEnabledField.onClick = function () {
+            dynamicAmountField.enabled = dynamicEnabledField.value;
+        };
+
         var backgroundPanel = dialog.add("panel", undefined, "Background");
         backgroundPanel.alignChildren = ["fill", "top"];
         backgroundPanel.margins = 14;
@@ -139,6 +174,8 @@
             var shapeCount = parseWholeNumber(shapeCountField.text);
             var gap = parseNumber(gapField.text);
             var padding = parseNumber(paddingField.text);
+            var dynamicEnabled = dynamicEnabledField.value;
+            var dynamicAmount = parseNumber(dynamicAmountField.text);
 
             if (!matrixSize || !isValidDimension(matrixSize.cols, MAX_DIMENSION) || !isValidDimension(matrixSize.rows, MAX_DIMENSION)) {
                 alert("Matrix size must be like 10x10 or 12. Each dimension must be from 1 to " + MAX_DIMENSION + ".");
@@ -164,8 +201,19 @@
                 return;
             }
 
-            var width = padding * 2 + matrixSize.cols * OUTER_RADIUS * 2 + (matrixSize.cols - 1) * gap;
-            var height = padding * 2 + matrixSize.rows * OUTER_RADIUS * 2 + (matrixSize.rows - 1) * gap;
+            if (dynamicEnabled && (dynamicAmount === null || dynamicAmount < 0 || dynamicAmount > 95)) {
+                alert("Dynamic amount must be a number from 0 to 95 percent.");
+                dynamicAmountField.active = true;
+                return;
+            }
+
+            if (!dynamicEnabled) {
+                dynamicAmount = 0;
+            }
+
+            var outerRadii = buildOuterRadii(matrixSize.cols, OUTER_RADIUS, dynamicEnabled, dynamicAmount);
+            var width = calculateMatrixWidth(outerRadii, gap, padding);
+            var height = calculateMatrixHeight(matrixSize.rows, maxNumber(outerRadii), gap, padding);
 
             if (width > MAX_CANVAS_PIXELS || height > MAX_CANVAS_PIXELS) {
                 alert(
@@ -188,6 +236,8 @@
                 shapeCount: shapeCount,
                 gap: gap,
                 padding: padding,
+                dynamicEnabled: dynamicEnabled,
+                dynamicAmount: dynamicAmount,
                 backgroundEnabled: backgroundEnabledField.value,
                 backgroundColor: null
             };
@@ -371,6 +421,71 @@
             cols: cols,
             rows: rows
         };
+    }
+
+    function buildOuterRadii(cols, baseRadius, dynamicEnabled, dynamicAmount) {
+        var radii = [];
+
+        for (var col = 0; col < cols; col++) {
+            radii.push(baseRadius * calculateRowDynamicScale(col, cols, dynamicEnabled, dynamicAmount));
+        }
+
+        return radii;
+    }
+
+    function calculateRowDynamicScale(col, cols, dynamicEnabled, dynamicAmount) {
+        if (!dynamicEnabled || dynamicAmount <= 0 || cols < 3) {
+            return 1;
+        }
+
+        var amount = dynamicAmount / 100;
+        var minScale = 1 - amount;
+        var maxScale = 1 + amount;
+        var wave = Math.sin((col / (cols - 1)) * Math.PI);
+
+        return minScale + (maxScale - minScale) * wave;
+    }
+
+    function calculateMatrixWidth(outerRadii, gap, padding) {
+        var width = padding * 2;
+
+        for (var i = 0; i < outerRadii.length; i++) {
+            width += outerRadii[i] * 2;
+        }
+
+        if (outerRadii.length > 1) {
+            width += (outerRadii.length - 1) * gap;
+        }
+
+        return width;
+    }
+
+    function calculateMatrixHeight(rows, maxRadius, gap, padding) {
+        return padding * 2 + rows * maxRadius * 2 + (rows - 1) * gap;
+    }
+
+    function buildColumnCenters(outerRadii, gap, padding) {
+        var centers = [];
+        var x = padding;
+
+        for (var i = 0; i < outerRadii.length; i++) {
+            centers[i] = x + outerRadii[i];
+            x += outerRadii[i] * 2 + gap;
+        }
+
+        return centers;
+    }
+
+    function maxNumber(values) {
+        var max = values[0];
+
+        for (var i = 1; i < values.length; i++) {
+            if (values[i] > max) {
+                max = values[i];
+            }
+        }
+
+        return max;
     }
 
     function buildRadii(outerRadius, shapeCount) {
