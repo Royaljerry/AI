@@ -7,22 +7,22 @@
     try {
         app.userInteractionLevel = UserInteractionLevel.DISPLAYALERTS;
 
-        var matrixSize = askMatrixSize("10x10");
-        if (!matrixSize) {
+        var settings = askSettings();
+        if (!settings) {
             return;
         }
 
         app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
 
-        var COLS = matrixSize.cols;
-        var ROWS = matrixSize.rows;
+        var COLS = settings.cols;
+        var ROWS = settings.rows;
         var OUTER_RADIUS = 28;
-        var GAP = 14;
-        var MARGIN = 28;
+        var GAP = settings.gap;
+        var MARGIN = settings.padding;
         var CELL = OUTER_RADIUS * 2 + GAP;
         var WIDTH = MARGIN * 2 + COLS * OUTER_RADIUS * 2 + (COLS - 1) * GAP;
         var HEIGHT = MARGIN * 2 + ROWS * OUTER_RADIUS * 2 + (ROWS - 1) * GAP;
-        var RADII = [OUTER_RADIUS, 20, 12, 6];
+        var RADII = buildRadii(OUTER_RADIUS, settings.circleCount);
 
         var preset = new DocumentPreset();
         preset.width = WIDTH;
@@ -49,6 +49,71 @@
         alert("Could not draw ring matrix: " + err + (err && err.line ? " line " + err.line : ""));
     } finally {
         app.userInteractionLevel = previousInteractionLevel;
+    }
+
+    function askSettings() {
+        var MAX_CANVAS_SIZE = 16348;
+
+        while (true) {
+            var matrixSize = askMatrixSize("10x10");
+            if (!matrixSize) {
+                return null;
+            }
+
+            var circleCount = askWholeNumber(
+                "Number of circles in each item?",
+                "4",
+                1,
+                20
+            );
+            if (circleCount === null) {
+                return null;
+            }
+
+            var gap = askNumber(
+                "Gap between items, in points?",
+                "14",
+                0,
+                500
+            );
+            if (gap === null) {
+                return null;
+            }
+
+            var padding = askNumber(
+                "Padding around the matrix, in points?",
+                "28",
+                0,
+                1000
+            );
+            if (padding === null) {
+                return null;
+            }
+
+            var outerRadius = 28;
+            var width = padding * 2 + matrixSize.cols * outerRadius * 2 + (matrixSize.cols - 1) * gap;
+            var height = padding * 2 + matrixSize.rows * outerRadius * 2 + (matrixSize.rows - 1) * gap;
+
+            if (width <= MAX_CANVAS_SIZE && height <= MAX_CANVAS_SIZE) {
+                return {
+                    cols: matrixSize.cols,
+                    rows: matrixSize.rows,
+                    circleCount: circleCount,
+                    gap: gap,
+                    padding: padding
+                };
+            }
+
+            alert(
+                "Those settings create an artboard of " +
+                roundTo(width, 2) +
+                " x " +
+                roundTo(height, 2) +
+                " points. Please use smaller values so both dimensions stay at or below " +
+                MAX_CANVAS_SIZE +
+                " points."
+            );
+        }
     }
 
     function askMatrixSize(defaultValue) {
@@ -86,6 +151,56 @@
 
             alert("Please enter a size like 10x10 or 12. Each dimension must be from 1 to " + MAX_DIMENSION + ".");
         }
+    }
+
+    function askWholeNumber(message, defaultValue, min, max) {
+        while (true) {
+            var answer = prompt(message, defaultValue);
+
+            if (answer === null) {
+                return null;
+            }
+
+            var value = parseWholeNumber(answer);
+            if (isValidDimension(value, max) && value >= min) {
+                return value;
+            }
+
+            alert("Please enter a whole number from " + min + " to " + max + ".");
+        }
+    }
+
+    function askNumber(message, defaultValue, min, max) {
+        while (true) {
+            var answer = prompt(message, defaultValue);
+
+            if (answer === null) {
+                return null;
+            }
+
+            var value = parseNumber(answer);
+            if (value !== null && value >= min && value <= max) {
+                return value;
+            }
+
+            alert("Please enter a number from " + min + " to " + max + ".");
+        }
+    }
+
+    function buildRadii(outerRadius, circleCount) {
+        var radii = [];
+        var innerRadius = outerRadius * 0.2;
+
+        if (circleCount === 1) {
+            return [outerRadius];
+        }
+
+        for (var i = 0; i < circleCount; i++) {
+            var t = i / (circleCount - 1);
+            radii.push(outerRadius - (outerRadius - innerRadius) * t);
+        }
+
+        return radii;
     }
 
     function drawItem(layer, cx, cy, radii) {
@@ -158,8 +273,22 @@
         return parseInt(value, 10);
     }
 
+    function parseNumber(value) {
+        value = trim(String(value));
+        if (!/^\d+(\.\d+)?$/.test(value)) {
+            return null;
+        }
+
+        return parseFloat(value);
+    }
+
     function isValidDimension(value, max) {
         return value !== null && value >= 1 && value <= max;
+    }
+
+    function roundTo(value, decimals) {
+        var factor = Math.pow(10, decimals);
+        return Math.round(value * factor) / factor;
     }
 
     function trim(value) {
