@@ -1,13 +1,21 @@
-// Draws a 10 by 10 matrix of randomly colored, slightly perturbed ring items.
+// Draws a user-sized matrix of randomly colored, slightly perturbed ring items.
 // Run in Adobe Illustrator via File > Scripts > Other Script.
 
 (function () {
     var previousInteractionLevel = app.userInteractionLevel;
-    app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
 
     try {
-        var COLS = 10;
-        var ROWS = 10;
+        app.userInteractionLevel = UserInteractionLevel.DISPLAYALERTS;
+
+        var matrixSize = askMatrixSize("10x10");
+        if (!matrixSize) {
+            return;
+        }
+
+        app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
+
+        var COLS = matrixSize.cols;
+        var ROWS = matrixSize.rows;
         var OUTER_RADIUS = 28;
         var GAP = 14;
         var MARGIN = 28;
@@ -37,9 +45,47 @@
 
         app.redraw();
     } catch (err) {
+        app.userInteractionLevel = UserInteractionLevel.DISPLAYALERTS;
         alert("Could not draw ring matrix: " + err + (err && err.line ? " line " + err.line : ""));
     } finally {
         app.userInteractionLevel = previousInteractionLevel;
+    }
+
+    function askMatrixSize(defaultValue) {
+        var MAX_DIMENSION = 100;
+
+        while (true) {
+            var answer = prompt(
+                "Matrix size? Use columns x rows, or one number for a square matrix.",
+                defaultValue
+            );
+
+            if (answer === null) {
+                return null;
+            }
+
+            answer = trim(String(answer)).toLowerCase();
+            var parts = answer.split(/[x*]/);
+            var cols;
+            var rows;
+
+            if (parts.length === 1) {
+                cols = parseWholeNumber(parts[0]);
+                rows = cols;
+            } else if (parts.length === 2) {
+                cols = parseWholeNumber(parts[0]);
+                rows = parseWholeNumber(parts[1]);
+            }
+
+            if (isValidDimension(cols, MAX_DIMENSION) && isValidDimension(rows, MAX_DIMENSION)) {
+                return {
+                    cols: cols,
+                    rows: rows
+                };
+            }
+
+            alert("Please enter a size like 10x10 or 12. Each dimension must be from 1 to " + MAX_DIMENSION + ".");
+        }
     }
 
     function drawItem(layer, cx, cy, radii) {
@@ -101,5 +147,22 @@
 
     function randomInt(min, max) {
         return Math.floor(min + Math.random() * (max - min + 1));
+    }
+
+    function parseWholeNumber(value) {
+        value = trim(String(value));
+        if (!/^\d+$/.test(value)) {
+            return null;
+        }
+
+        return parseInt(value, 10);
+    }
+
+    function isValidDimension(value, max) {
+        return value !== null && value >= 1 && value <= max;
+    }
+
+    function trim(value) {
+        return value.replace(/^\s+|\s+$/g, "");
     }
 }());
