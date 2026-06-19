@@ -52,139 +52,155 @@
     }
 
     function askSettings() {
-        var MAX_CANVAS_SIZE = 16348;
-
-        while (true) {
-            var matrixSize = askMatrixSize("10x10");
-            if (!matrixSize) {
-                return null;
-            }
-
-            var circleCount = askWholeNumber(
-                "Number of circles in each item?",
-                "4",
-                1,
-                20
-            );
-            if (circleCount === null) {
-                return null;
-            }
-
-            var gap = askNumber(
-                "Gap between items, in points?",
-                "14",
-                0,
-                500
-            );
-            if (gap === null) {
-                return null;
-            }
-
-            var padding = askNumber(
-                "Padding around the matrix, in points?",
-                "28",
-                0,
-                1000
-            );
-            if (padding === null) {
-                return null;
-            }
-
-            var outerRadius = 28;
-            var width = padding * 2 + matrixSize.cols * outerRadius * 2 + (matrixSize.cols - 1) * gap;
-            var height = padding * 2 + matrixSize.rows * outerRadius * 2 + (matrixSize.rows - 1) * gap;
-
-            if (width <= MAX_CANVAS_SIZE && height <= MAX_CANVAS_SIZE) {
-                return {
-                    cols: matrixSize.cols,
-                    rows: matrixSize.rows,
-                    circleCount: circleCount,
-                    gap: gap,
-                    padding: padding
-                };
-            }
-
-            alert(
-                "Those settings create an artboard of " +
-                roundTo(width, 2) +
-                " x " +
-                roundTo(height, 2) +
-                " points. Please use smaller values so both dimensions stay at or below " +
-                MAX_CANVAS_SIZE +
-                " points."
-            );
-        }
-    }
-
-    function askMatrixSize(defaultValue) {
         var MAX_DIMENSION = 100;
+        var MAX_CANVAS_SIZE = 16348;
+        var OUTER_RADIUS = 28;
+        var result = null;
+        var dialog = new Window("dialog", "Random Ring Matrix Settings");
 
-        while (true) {
-            var answer = prompt(
-                "Matrix size? Use columns x rows, or one number for a square matrix.",
-                defaultValue
-            );
+        dialog.alignChildren = ["fill", "top"];
+        dialog.margins = 16;
 
-            if (answer === null) {
-                return null;
+        var fieldsPanel = dialog.add("panel", undefined, "Parameters");
+        fieldsPanel.alignChildren = ["fill", "top"];
+        fieldsPanel.margins = 14;
+
+        var matrixField = addField(
+            fieldsPanel,
+            "Matrix size",
+            "10x10",
+            "Use columns x rows, or one number for a square matrix."
+        );
+        var circleCountField = addField(
+            fieldsPanel,
+            "Circles per item",
+            "4",
+            "Whole number from 1 to 20."
+        );
+        var gapField = addField(
+            fieldsPanel,
+            "Item gap, pt",
+            "14",
+            "Distance between neighboring items, from 0 to 500 points."
+        );
+        var paddingField = addField(
+            fieldsPanel,
+            "Matrix padding, pt",
+            "28",
+            "Padding around the full matrix, from 0 to 1000 points."
+        );
+
+        var buttons = dialog.add("group");
+        buttons.alignment = ["right", "top"];
+        var cancelButton = buttons.add("button", undefined, "Cancel", { name: "cancel" });
+        var okButton = buttons.add("button", undefined, "OK", { name: "ok" });
+
+        cancelButton.onClick = function () {
+            dialog.close(0);
+        };
+
+        okButton.onClick = function () {
+            var matrixSize = parseMatrixSize(matrixField.text);
+            var circleCount = parseWholeNumber(circleCountField.text);
+            var gap = parseNumber(gapField.text);
+            var padding = parseNumber(paddingField.text);
+
+            if (!matrixSize || !isValidDimension(matrixSize.cols, MAX_DIMENSION) || !isValidDimension(matrixSize.rows, MAX_DIMENSION)) {
+                alert("Matrix size must be like 10x10 or 12. Each dimension must be from 1 to " + MAX_DIMENSION + ".");
+                matrixField.active = true;
+                return;
             }
 
-            answer = trim(String(answer)).toLowerCase();
-            var parts = answer.split(/[x*]/);
-            var cols;
-            var rows;
-
-            if (parts.length === 1) {
-                cols = parseWholeNumber(parts[0]);
-                rows = cols;
-            } else if (parts.length === 2) {
-                cols = parseWholeNumber(parts[0]);
-                rows = parseWholeNumber(parts[1]);
+            if (circleCount === null || circleCount < 1 || circleCount > 20) {
+                alert("Circles per item must be a whole number from 1 to 20.");
+                circleCountField.active = true;
+                return;
             }
 
-            if (isValidDimension(cols, MAX_DIMENSION) && isValidDimension(rows, MAX_DIMENSION)) {
-                return {
-                    cols: cols,
-                    rows: rows
-                };
+            if (gap === null || gap < 0 || gap > 500) {
+                alert("Item gap must be a number from 0 to 500 points.");
+                gapField.active = true;
+                return;
             }
 
-            alert("Please enter a size like 10x10 or 12. Each dimension must be from 1 to " + MAX_DIMENSION + ".");
-        }
+            if (padding === null || padding < 0 || padding > 1000) {
+                alert("Matrix padding must be a number from 0 to 1000 points.");
+                paddingField.active = true;
+                return;
+            }
+
+            var width = padding * 2 + matrixSize.cols * OUTER_RADIUS * 2 + (matrixSize.cols - 1) * gap;
+            var height = padding * 2 + matrixSize.rows * OUTER_RADIUS * 2 + (matrixSize.rows - 1) * gap;
+
+            if (width > MAX_CANVAS_SIZE || height > MAX_CANVAS_SIZE) {
+                alert(
+                    "Those settings create an artboard of " +
+                    roundTo(width, 2) +
+                    " x " +
+                    roundTo(height, 2) +
+                    " points. Please use smaller values so both dimensions stay at or below " +
+                    MAX_CANVAS_SIZE +
+                    " points."
+                );
+                matrixField.active = true;
+                return;
+            }
+
+            result = {
+                cols: matrixSize.cols,
+                rows: matrixSize.rows,
+                circleCount: circleCount,
+                gap: gap,
+                padding: padding
+            };
+            dialog.close(1);
+        };
+
+        matrixField.active = true;
+        dialog.show();
+        return result;
     }
 
-    function askWholeNumber(message, defaultValue, min, max) {
-        while (true) {
-            var answer = prompt(message, defaultValue);
+    function addField(parent, label, defaultValue, helpText) {
+        var row = parent.add("group");
+        row.alignChildren = ["left", "center"];
 
-            if (answer === null) {
-                return null;
-            }
+        var labelView = row.add("statictext", undefined, label);
+        labelView.preferredSize.width = 110;
 
-            var value = parseWholeNumber(answer);
-            if (isValidDimension(value, max) && value >= min) {
-                return value;
-            }
+        var input = row.add("edittext", undefined, defaultValue);
+        input.characters = 12;
 
-            alert("Please enter a whole number from " + min + " to " + max + ".");
-        }
+        var help = row.add("statictext", undefined, helpText);
+        help.preferredSize.width = 310;
+
+        return input;
     }
 
-    function askNumber(message, defaultValue, min, max) {
-        while (true) {
-            var answer = prompt(message, defaultValue);
+    function parseMatrixSize(value) {
+        value = trim(String(value)).toLowerCase();
+        var parts = value.split(/[x*]/);
+        var cols;
+        var rows;
 
-            if (answer === null) {
-                return null;
-            }
-
-            var value = parseNumber(answer);
-            if (value !== null && value >= min && value <= max) {
-                return value;
-            }
-
-            alert("Please enter a number from " + min + " to " + max + ".");
+        if (parts.length === 1) {
+            cols = parseWholeNumber(parts[0]);
+            rows = cols;
+        } else if (parts.length === 2) {
+            cols = parseWholeNumber(parts[0]);
+            rows = parseWholeNumber(parts[1]);
+        } else {
+            return null;
         }
+
+        if (cols === null || rows === null) {
+            return null;
+        }
+
+        return {
+            cols: cols,
+            rows: rows
+        };
     }
 
     function buildRadii(outerRadius, circleCount) {
