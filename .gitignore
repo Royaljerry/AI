@@ -25,3 +25,22 @@ ehthumbs.db
 *~
 *.tmp
 *.bak
+
+# Image and design artifacts
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.heic
+*.heif
+*.tif
+*.tiff
+*.bmp
+*.ico
+*.raw
+*.psd
+*.psb
+*.ai
+*.ait
+*.eps
