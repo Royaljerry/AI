@@ -28,8 +28,10 @@
         preset.width = WIDTH;
         preset.height = HEIGHT;
         preset.colorMode = DocumentColorSpace.RGB;
+        applyPixelPresetOptions(preset);
 
-        var doc = app.documents.addDocument("Print", preset);
+        var doc = createPixelDocument(preset);
+        applyPixelDocumentOptions(doc);
         doc.rulerOrigin = [0, 0];
 
         var layer = doc.activeLayer;
@@ -53,7 +55,7 @@
 
     function askSettings() {
         var MAX_DIMENSION = 100;
-        var MAX_CANVAS_SIZE = 16348;
+        var MAX_CANVAS_PIXELS = 16348;
         var OUTER_RADIUS = 28;
         var result = null;
         var dialog = new Window("dialog", "Random Ring Matrix Settings");
@@ -79,15 +81,15 @@
         );
         var gapField = addField(
             fieldsPanel,
-            "Item gap, pt",
+            "Item gap, px",
             "14",
-            "Distance between neighboring items, from 0 to 500 points."
+            "Distance between neighboring items, from 0 to 500 pixels."
         );
         var paddingField = addField(
             fieldsPanel,
-            "Matrix padding, pt",
+            "Matrix padding, px",
             "28",
-            "Padding around the full matrix, from 0 to 1000 points."
+            "Padding around the full matrix, from 0 to 1000 pixels."
         );
 
         var buttons = dialog.add("group");
@@ -118,13 +120,13 @@
             }
 
             if (gap === null || gap < 0 || gap > 500) {
-                alert("Item gap must be a number from 0 to 500 points.");
+                alert("Item gap must be a number from 0 to 500 pixels.");
                 gapField.active = true;
                 return;
             }
 
             if (padding === null || padding < 0 || padding > 1000) {
-                alert("Matrix padding must be a number from 0 to 1000 points.");
+                alert("Matrix padding must be a number from 0 to 1000 pixels.");
                 paddingField.active = true;
                 return;
             }
@@ -132,15 +134,15 @@
             var width = padding * 2 + matrixSize.cols * OUTER_RADIUS * 2 + (matrixSize.cols - 1) * gap;
             var height = padding * 2 + matrixSize.rows * OUTER_RADIUS * 2 + (matrixSize.rows - 1) * gap;
 
-            if (width > MAX_CANVAS_SIZE || height > MAX_CANVAS_SIZE) {
+            if (width > MAX_CANVAS_PIXELS || height > MAX_CANVAS_PIXELS) {
                 alert(
                     "Those settings create an artboard of " +
                     roundTo(width, 2) +
                     " x " +
                     roundTo(height, 2) +
-                    " points. Please use smaller values so both dimensions stay at or below " +
-                    MAX_CANVAS_SIZE +
-                    " points."
+                    " pixels. Please use smaller values so both dimensions stay at or below " +
+                    MAX_CANVAS_PIXELS +
+                    " pixels."
                 );
                 matrixField.active = true;
                 return;
@@ -159,6 +161,30 @@
         matrixField.active = true;
         dialog.show();
         return result;
+    }
+
+    function applyPixelPresetOptions(preset) {
+        try {
+            preset.units = RulerUnits.Pixels;
+        } catch (errUnits) {}
+
+        try {
+            preset.rasterResolution = DocumentRasterResolution.ScreenResolution;
+        } catch (errResolution) {}
+    }
+
+    function createPixelDocument(preset) {
+        try {
+            return app.documents.addDocument("Web", preset);
+        } catch (errWebPreset) {
+            return app.documents.addDocument("Print", preset);
+        }
+    }
+
+    function applyPixelDocumentOptions(doc) {
+        try {
+            doc.rulerUnits = RulerUnits.Pixels;
+        } catch (errRulerUnits) {}
     }
 
     function addField(parent, label, defaultValue, helpText) {
