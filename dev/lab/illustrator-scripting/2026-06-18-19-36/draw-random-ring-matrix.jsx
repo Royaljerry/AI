@@ -162,8 +162,11 @@
     }
 
     function addField(parent, label, defaultValue, helpText) {
+        var HELP_WIDTH = 260;
+        var HELP_WRAP_CHARS = 42;
+        var HELP_LINE_HEIGHT = 17;
         var row = parent.add("group");
-        row.alignChildren = ["left", "center"];
+        row.alignChildren = ["left", "top"];
 
         var labelView = row.add("statictext", undefined, label);
         labelView.preferredSize.width = 110;
@@ -171,10 +174,62 @@
         var input = row.add("edittext", undefined, defaultValue);
         input.characters = 12;
 
-        var help = row.add("statictext", undefined, helpText);
-        help.preferredSize.width = 310;
+        var wrappedHelpText = wrapText(helpText, HELP_WRAP_CHARS);
+        var help = row.add("statictext", undefined, wrappedHelpText, { multiline: true });
+        help.preferredSize.width = HELP_WIDTH;
+        help.preferredSize.height = countLines(wrappedHelpText) * HELP_LINE_HEIGHT;
 
         return input;
+    }
+
+    function wrapText(text, maxChars) {
+        var sourceLines = String(text).split(/\r\n|\r|\n/);
+        var wrappedLines = [];
+
+        for (var i = 0; i < sourceLines.length; i++) {
+            wrapLine(sourceLines[i], maxChars, wrappedLines);
+        }
+
+        return wrappedLines.join("\n");
+    }
+
+    function wrapLine(line, maxChars, output) {
+        var words = trim(String(line)).split(/\s+/);
+        var current = "";
+
+        for (var i = 0; i < words.length; i++) {
+            var word = words[i];
+
+            if (!word) {
+                continue;
+            }
+
+            if (!current) {
+                current = word;
+            } else if ((current.length + 1 + word.length) <= maxChars) {
+                current += " " + word;
+            } else {
+                output.push(current);
+                current = word;
+            }
+
+            while (current.length > maxChars) {
+                output.push(current.substr(0, maxChars));
+                current = current.substr(maxChars);
+            }
+        }
+
+        if (current) {
+            output.push(current);
+        }
+    }
+
+    function countLines(text) {
+        if (!text) {
+            return 1;
+        }
+
+        return String(text).split(/\r\n|\r|\n/).length;
     }
 
     function parseMatrixSize(value) {
