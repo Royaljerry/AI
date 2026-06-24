@@ -1,6 +1,9 @@
 # Scratch workspace
 /temp/
 
+# Project workspace scratch files
+/projects/*/temporary/
+
 # macOS
 .DS_Store
 **/.DS_Store
