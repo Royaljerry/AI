@@ -151,10 +151,10 @@
 
         var dynamicHelpText = wrapText(
             "Items become smaller near each row edge and larger near the row center.",
-            60
+            90
         );
         var dynamicHelp = dynamicsPanel.add("statictext", undefined, dynamicHelpText, { multiline: true });
-        dynamicHelp.preferredSize.width = 430;
+        dynamicHelp.preferredSize.width = 620;
         dynamicHelp.preferredSize.height = countLines(dynamicHelpText) * 17;
 
         var dynamicAmountField = addField(
@@ -177,10 +177,10 @@
 
         var rotationHelpText = wrapText(
             "Items rotate from 0 degrees near each row edge to the full angle near the row center.",
-            60
+            90
         );
         var rotationHelp = rotationPanel.add("statictext", undefined, rotationHelpText, { multiline: true });
-        rotationHelp.preferredSize.width = 430;
+        rotationHelp.preferredSize.width = 620;
         rotationHelp.preferredSize.height = countLines(rotationHelpText) * 17;
 
         var rotationAngleField = addField(
@@ -203,10 +203,10 @@
 
         var sineHelpText = wrapText(
             "Offsets items vertically along each row to create a horizontal sine wave.",
-            60
+            90
         );
         var sineHelp = sinePanel.add("statictext", undefined, sineHelpText, { multiline: true });
-        sineHelp.preferredSize.width = 430;
+        sineHelp.preferredSize.width = 620;
         sineHelp.preferredSize.height = countLines(sineHelpText) * 17;
 
         var sineAmplitudeField = addField(
@@ -593,17 +593,21 @@
     }
 
     function addField(parent, label, defaultValue, helpText) {
-        var HELP_WIDTH = 260;
-        var HELP_WRAP_CHARS = 42;
+        var LABEL_WIDTH = 140;
+        var INPUT_WIDTH = 72;
+        var HELP_WIDTH = 440;
+        var HELP_WRAP_CHARS = 80;
         var HELP_LINE_HEIGHT = 17;
         var row = parent.add("group");
         row.alignChildren = ["left", "top"];
+        row.spacing = 6;
 
         var labelView = row.add("statictext", undefined, label);
-        labelView.preferredSize.width = 110;
+        labelView.preferredSize.width = LABEL_WIDTH;
 
         var input = row.add("edittext", undefined, defaultValue);
-        input.characters = 12;
+        input.characters = 6;
+        input.preferredSize.width = INPUT_WIDTH;
 
         var wrappedHelpText = wrapText(helpText, HELP_WRAP_CHARS);
         var help = row.add("statictext", undefined, wrappedHelpText, { multiline: true });
@@ -614,17 +618,20 @@
     }
 
     function addDropdown(parent, label, items, selectedIndex, helpText) {
-        var HELP_WIDTH = 260;
-        var HELP_WRAP_CHARS = 42;
+        var LABEL_WIDTH = 140;
+        var DROPDOWN_WIDTH = 72;
+        var HELP_WIDTH = 440;
+        var HELP_WRAP_CHARS = 80;
         var HELP_LINE_HEIGHT = 17;
         var row = parent.add("group");
         row.alignChildren = ["left", "top"];
+        row.spacing = 6;
 
         var labelView = row.add("statictext", undefined, label);
-        labelView.preferredSize.width = 110;
+        labelView.preferredSize.width = LABEL_WIDTH;
 
         var dropdown = row.add("dropdownlist", undefined, items);
-        dropdown.preferredSize.width = 118;
+        dropdown.preferredSize.width = DROPDOWN_WIDTH;
         dropdown.selection = selectedIndex;
 
         var wrappedHelpText = wrapText(helpText, HELP_WRAP_CHARS);
