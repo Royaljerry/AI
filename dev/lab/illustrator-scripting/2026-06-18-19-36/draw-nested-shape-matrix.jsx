@@ -116,7 +116,7 @@
             fieldsPanel,
             "Item gap, px",
             "14",
-            "Distance between neighboring items, from 0 to 500 pixels."
+            "Distance between neighboring items, from -500 to 500 pixels. Negative values overlap items."
         );
         var paddingField = addField(
             fieldsPanel,
@@ -204,7 +204,7 @@
         okButton.onClick = function () {
             var matrixSize = parseMatrixSize(matrixField.text);
             var shapeCount = parseWholeNumber(shapeCountField.text);
-            var gap = parseNumber(gapField.text);
+            var gap = parseSignedNumber(gapField.text);
             var padding = parseNumber(paddingField.text);
             var dynamicEnabled = dynamicEnabledField.value;
             var dynamicAmount = parseNumber(dynamicAmountField.text);
@@ -223,8 +223,8 @@
                 return;
             }
 
-            if (gap === null || gap < 0 || gap > 500) {
-                alert("Item gap must be a number from 0 to 500 pixels.");
+            if (gap === null || gap < -500 || gap > 500) {
+                alert("Item gap must be a number from -500 to 500 pixels.");
                 gapField.active = true;
                 return;
             }
@@ -256,8 +256,16 @@
             }
 
             var outerRadii = buildOuterRadii(matrixSize.cols, OUTER_RADIUS, dynamicEnabled, dynamicAmount);
+            var maxOuterRadius = maxNumber(outerRadii);
+
+            if (!isValidGapForMatrix(outerRadii, matrixSize.rows, maxOuterRadius, gap)) {
+                alert("That negative gap overlaps neighboring items too much. Please use a larger gap value.");
+                gapField.active = true;
+                return;
+            }
+
             var width = calculateMatrixWidth(outerRadii, gap, padding);
-            var height = calculateMatrixHeight(matrixSize.rows, maxNumber(outerRadii), gap, padding);
+            var height = calculateMatrixHeight(matrixSize.rows, maxOuterRadius, gap, padding);
 
             if (width > MAX_CANVAS_PIXELS || height > MAX_CANVAS_PIXELS) {
                 alert(
@@ -524,6 +532,22 @@
 
     function calculateMatrixHeight(rows, maxRadius, gap, padding) {
         return padding * 2 + rows * maxRadius * 2 + (rows - 1) * gap;
+    }
+
+    function isValidGapForMatrix(outerRadii, rows, maxRadius, gap) {
+        if (outerRadii.length > 1) {
+            for (var i = 0; i < outerRadii.length - 1; i++) {
+                if ((outerRadii[i] + outerRadii[i + 1] + gap) <= 0) {
+                    return false;
+                }
+            }
+        }
+
+        if (rows > 1 && (maxRadius * 2 + gap) <= 0) {
+            return false;
+        }
+
+        return true;
     }
 
     function buildColumnCenters(outerRadii, gap, padding) {
