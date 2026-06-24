@@ -12,7 +12,7 @@
             return;
         }
 
-        if (settings.backgroundEnabled) {
+        if (settings.backgroundEnabled && !settings.backgroundColor) {
             settings.backgroundColor = askBackgroundColor(rgbColorFromHex("#FFFFFF"));
             if (!settings.backgroundColor) {
                 return;
@@ -97,6 +97,7 @@
         var MAX_CANVAS_PIXELS = 16348;
         var OUTER_RADIUS = 28;
         var result = null;
+        var randomizedBackgroundColor = null;
         var dialog = new Window("dialog", "Random Shape Matrix Settings");
 
         dialog.alignChildren = ["fill", "top"];
@@ -137,6 +138,9 @@
             "28",
             "Padding around the full matrix, from 0 to 1000 pixels."
         );
+        var randomizeButtonRow = fieldsPanel.add("group");
+        randomizeButtonRow.alignment = ["left", "top"];
+        var randomizeButton = randomizeButtonRow.add("button", undefined, "Randomize Parameters");
 
         var dynamicsPanel = dialog.add("panel", undefined, "Row Dynamics");
         dynamicsPanel.alignChildren = ["fill", "top"];
@@ -161,7 +165,7 @@
         );
         dynamicAmountField.enabled = false;
         dynamicEnabledField.onClick = function () {
-            dynamicAmountField.enabled = dynamicEnabledField.value;
+            syncDynamicFields();
         };
 
         var rotationPanel = dialog.add("panel", undefined, "Rotation");
@@ -187,7 +191,7 @@
         );
         rotationAngleField.enabled = false;
         rotationEnabledField.onClick = function () {
-            rotationAngleField.enabled = rotationEnabledField.value;
+            syncRotationFields();
         };
 
         var sinePanel = dialog.add("panel", undefined, "Sine Wave");
@@ -220,8 +224,7 @@
         sineAmplitudeField.enabled = false;
         sineFrequencyField.enabled = false;
         sineEnabledField.onClick = function () {
-            sineAmplitudeField.enabled = sineEnabledField.value;
-            sineFrequencyField.enabled = sineEnabledField.value;
+            syncSineFields();
         };
 
         var backgroundPanel = dialog.add("panel", undefined, "Background");
@@ -230,6 +233,9 @@
 
         var backgroundEnabledField = backgroundPanel.add("checkbox", undefined, "Create a background behind the shapes");
         backgroundEnabledField.value = false;
+        backgroundEnabledField.onClick = function () {
+            randomizedBackgroundColor = null;
+        };
 
         var backgroundHelp = backgroundPanel.add(
             "statictext",
@@ -253,6 +259,10 @@
             { multiline: true }
         );
         saveSettingsHelp.preferredSize.width = 430;
+
+        randomizeButton.onClick = function () {
+            randomizeSettingsFields();
+        };
 
         var buttons = dialog.add("group");
         buttons.alignment = ["right", "top"];
@@ -378,11 +388,52 @@
                 sineAmplitude: sineAmplitude,
                 sineFrequency: sineFrequency,
                 backgroundEnabled: backgroundEnabledField.value,
-                backgroundColor: null,
+                backgroundColor: randomizedBackgroundColor,
                 saveSettingsEnabled: saveSettingsField.value
             };
             dialog.close(1);
         };
+
+        function syncDynamicFields() {
+            dynamicAmountField.enabled = dynamicEnabledField.value;
+        }
+
+        function syncRotationFields() {
+            rotationAngleField.enabled = rotationEnabledField.value;
+        }
+
+        function syncSineFields() {
+            sineAmplitudeField.enabled = sineEnabledField.value;
+            sineFrequencyField.enabled = sineEnabledField.value;
+        }
+
+        function randomizeSettingsFields() {
+            var cols = randomInt(4, 30);
+            var rows = randomInt(4, 30);
+
+            shapeField.selection = randomInt(0, 2);
+            matrixField.text = cols + "x" + rows;
+            shapeCountField.text = String(randomInt(1, 12));
+            gapField.text = String(randomInt(-8, 72));
+            paddingField.text = String(randomInt(0, 140));
+
+            dynamicEnabledField.value = randomBoolean();
+            dynamicAmountField.text = String(randomInt(10, 85));
+            syncDynamicFields();
+
+            rotationEnabledField.value = randomBoolean();
+            rotationAngleField.text = String(randomSignedInt(5, 90));
+            syncRotationFields();
+
+            sineEnabledField.value = randomBoolean();
+            sineAmplitudeField.text = String(randomInt(5, 120));
+            sineFrequencyField.text = String(randomDecimal(0.5, 6, 1));
+            syncSineFields();
+
+            backgroundEnabledField.value = randomBoolean();
+            randomizedBackgroundColor = backgroundEnabledField.value ? randomRGBColor() : null;
+            saveSettingsField.value = true;
+        }
 
         matrixField.active = true;
         dialog.show();
@@ -1036,6 +1087,19 @@
 
     function randomInt(min, max) {
         return Math.floor(min + Math.random() * (max - min + 1));
+    }
+
+    function randomSignedInt(minAbs, maxAbs) {
+        var value = randomInt(minAbs, maxAbs);
+        return randomBoolean() ? value : -value;
+    }
+
+    function randomDecimal(min, max, decimals) {
+        return roundTo(randomRange(min, max), decimals);
+    }
+
+    function randomBoolean() {
+        return Math.random() >= 0.5;
     }
 
     function randomRange(min, max) {
