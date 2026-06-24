@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hungarian Proofread"
+  short_description: "Correct Hungarian spelling and typography"
+  default_prompt: "Use $hungarian-proofread to proofread this Hungarian text without rewriting it."

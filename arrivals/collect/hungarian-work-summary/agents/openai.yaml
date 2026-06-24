@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hungarian Work Summary"
+  short_description: "Draft Hungarian dev newsletters"
+  default_prompt: "Use $hungarian-work-summary to draft a Hungarian go2uni development newsletter from a commit hash to HEAD plus my extra bullet points."
