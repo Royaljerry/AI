@@ -80,6 +80,11 @@
         }
 
         app.redraw();
+
+        if (settings.saveSettingsEnabled) {
+            app.userInteractionLevel = UserInteractionLevel.DISPLAYALERTS;
+            saveSettingsMarkdown(settings, WIDTH, HEIGHT, OUTER_RADIUS);
+        }
     } catch (err) {
         app.userInteractionLevel = UserInteractionLevel.DISPLAYALERTS;
         alert("Could not draw shape matrix: " + err + (err && err.line ? " line " + err.line : ""));
@@ -234,6 +239,21 @@
         );
         backgroundHelp.preferredSize.width = 430;
 
+        var outputPanel = dialog.add("panel", undefined, "Output");
+        outputPanel.alignChildren = ["fill", "top"];
+        outputPanel.margins = 14;
+
+        var saveSettingsField = outputPanel.add("checkbox", undefined, "Save settings markdown");
+        saveSettingsField.value = true;
+
+        var saveSettingsHelp = outputPanel.add(
+            "statictext",
+            undefined,
+            "If enabled, choose where to save a Markdown file after the artwork is created.",
+            { multiline: true }
+        );
+        saveSettingsHelp.preferredSize.width = 430;
+
         var buttons = dialog.add("group");
         buttons.alignment = ["right", "top"];
         var cancelButton = buttons.add("button", undefined, "Cancel", { name: "cancel" });
@@ -358,7 +378,8 @@
                 sineAmplitude: sineAmplitude,
                 sineFrequency: sineFrequency,
                 backgroundEnabled: backgroundEnabledField.value,
-                backgroundColor: null
+                backgroundColor: null,
+                saveSettingsEnabled: saveSettingsField.value
             };
             dialog.close(1);
         };
@@ -407,6 +428,117 @@
         rect.stroked = false;
         rect.name = "Background";
         rect.locked = true;
+    }
+
+    function saveSettingsMarkdown(settings, width, height, baseOuterRadius) {
+        var runDate = new Date();
+        var defaultFile = new File(
+            Folder.desktop.fsName + "/" + buildSettingsFileName(runDate)
+        );
+        var file = defaultFile.saveDlg("Save settings markdown", "Markdown files:*.md");
+
+        if (!file) {
+            return;
+        }
+
+        if (!/\.md$/i.test(file.name)) {
+            file = new File(file.fsName + ".md");
+        }
+
+        file.encoding = "UTF-8";
+        file.lineFeed = "Unix";
+
+        if (!file.open("w")) {
+            alert("Could not open the settings file for writing.");
+            return;
+        }
+
+        file.write(buildSettingsMarkdown(settings, width, height, baseOuterRadius, runDate));
+        file.close();
+    }
+
+    function buildSettingsFileName(date) {
+        return "draw-nested-shape-matrix-settings-" + formatFileDate(date) + ".md";
+    }
+
+    function buildSettingsMarkdown(settings, width, height, baseOuterRadius, runDate) {
+        var lines = [];
+
+        lines.push("# Draw Nested Shape Matrix");
+        lines.push("");
+        lines.push("`" + formatDisplayDate(runDate) + "`");
+        lines.push("");
+        lines.push("- Matrix size: `" + settings.cols + " x " + settings.rows + "`");
+        lines.push("- Shape: `" + shapeTypeToLabel(settings.shapeType) + "`");
+        lines.push("- Shapes per item: `" + settings.shapeCount + "`");
+        lines.push("- Base outer radius: `" + formatNumber(baseOuterRadius) + " px`");
+        lines.push("- Item gap: `" + formatNumber(settings.gap) + " px`");
+        lines.push("- Matrix padding: `" + formatNumber(settings.padding) + " px`");
+        lines.push("- Row dynamics: `" + formatBoolean(settings.dynamicEnabled) + "`");
+        lines.push("- Dynamic amount: `" + formatNumber(settings.dynamicAmount) + "%`");
+        lines.push("- Row rotation: `" + formatBoolean(settings.rotationEnabled) + "`");
+        lines.push("- Rotation angle: `" + formatNumber(settings.rotationAngle) + " deg`");
+        lines.push("- Sine wave: `" + formatBoolean(settings.sineEnabled) + "`");
+        lines.push("- Sine amplitude: `" + formatNumber(settings.sineAmplitude) + " px`");
+        lines.push("- Sine frequency: `" + formatNumber(settings.sineFrequency) + "`");
+        lines.push("- Background: `" + formatBoolean(settings.backgroundEnabled) + "`");
+        lines.push("- Background color: `" + formatBackgroundColor(settings) + "`");
+        lines.push("- Artboard size: `" + formatNumber(width) + " x " + formatNumber(height) + " px`");
+        lines.push("- Randomized parts: `shape colors and nested shape offsets`");
+        lines.push("");
+
+        return lines.join("\n");
+    }
+
+    function formatDisplayDate(date) {
+        return date.getFullYear() +
+            "/" + pad2(date.getMonth() + 1) +
+            "/" + pad2(date.getDate()) +
+            " @ " + pad2(date.getHours()) +
+            ":" + pad2(date.getMinutes()) +
+            ":" + pad2(date.getSeconds());
+    }
+
+    function formatFileDate(date) {
+        return date.getFullYear() +
+            "-" + pad2(date.getMonth() + 1) +
+            "-" + pad2(date.getDate()) +
+            "-" + pad2(date.getHours()) +
+            pad2(date.getMinutes()) +
+            pad2(date.getSeconds());
+    }
+
+    function pad2(value) {
+        value = String(value);
+        return value.length < 2 ? "0" + value : value;
+    }
+
+    function shapeTypeToLabel(shapeType) {
+        if (shapeType === "square") {
+            return "Squares";
+        }
+
+        if (shapeType === "triangle") {
+            return "Triangles";
+        }
+
+        return "Circles";
+    }
+
+    function formatBoolean(value) {
+        return value ? "true" : "false";
+    }
+
+    function formatNumber(value) {
+        return String(roundTo(value, 4));
+    }
+
+    function formatBackgroundColor(settings) {
+        if (!settings.backgroundEnabled || !settings.backgroundColor) {
+            return "none";
+        }
+
+        return rgbColorToHex(settings.backgroundColor);
     }
 
     function addField(parent, label, defaultValue, helpText) {
