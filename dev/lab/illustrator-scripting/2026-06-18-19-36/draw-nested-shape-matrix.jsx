@@ -33,9 +33,10 @@
             settings.dynamicAmount
         );
         var MAX_OUTER_RADIUS = maxNumber(OUTER_RADII);
+        var SINE_AMPLITUDE = settings.sineEnabled ? settings.sineAmplitude : 0;
         var COLUMN_CENTERS = buildColumnCenters(OUTER_RADII, GAP, MARGIN);
         var WIDTH = calculateMatrixWidth(OUTER_RADII, GAP, MARGIN);
-        var HEIGHT = calculateMatrixHeight(ROWS, MAX_OUTER_RADIUS, GAP, MARGIN);
+        var HEIGHT = calculateMatrixHeight(ROWS, MAX_OUTER_RADIUS, GAP, MARGIN, SINE_AMPLITUDE);
         var ROW_CELL = MAX_OUTER_RADIUS * 2 + GAP;
 
         var preset = new DocumentPreset();
@@ -58,7 +59,14 @@
         for (var row = 0; row < ROWS; row++) {
             for (var col = 0; col < COLS; col++) {
                 var cx = COLUMN_CENTERS[col];
-                var cy = HEIGHT - MARGIN - MAX_OUTER_RADIUS - row * ROW_CELL;
+                var cy = HEIGHT - MARGIN - SINE_AMPLITUDE - MAX_OUTER_RADIUS - row * ROW_CELL;
+                cy += calculateSineWaveOffset(
+                    col,
+                    COLS,
+                    settings.sineEnabled,
+                    settings.sineAmplitude,
+                    settings.sineFrequency
+                );
                 var radii = buildRadii(OUTER_RADII[col], settings.shapeCount);
                 var rotationAngle = calculateRowRotationAngle(
                     col,
@@ -177,6 +185,40 @@
             rotationAngleField.enabled = rotationEnabledField.value;
         };
 
+        var sinePanel = dialog.add("panel", undefined, "Sine Wave");
+        sinePanel.alignChildren = ["fill", "top"];
+        sinePanel.margins = 14;
+
+        var sineEnabledField = sinePanel.add("checkbox", undefined, "Use sine wave");
+        sineEnabledField.value = false;
+
+        var sineHelpText = wrapText(
+            "Offsets items vertically along each row to create a horizontal sine wave.",
+            60
+        );
+        var sineHelp = sinePanel.add("statictext", undefined, sineHelpText, { multiline: true });
+        sineHelp.preferredSize.width = 430;
+        sineHelp.preferredSize.height = countLines(sineHelpText) * 17;
+
+        var sineAmplitudeField = addField(
+            sinePanel,
+            "Amplitude, px",
+            "40",
+            "Vertical wave height from the row baseline, from 0 to 1000 pixels."
+        );
+        var sineFrequencyField = addField(
+            sinePanel,
+            "Frequency",
+            "3",
+            "Number of wave repetitions across each row, from 0.1 to 100."
+        );
+        sineAmplitudeField.enabled = false;
+        sineFrequencyField.enabled = false;
+        sineEnabledField.onClick = function () {
+            sineAmplitudeField.enabled = sineEnabledField.value;
+            sineFrequencyField.enabled = sineEnabledField.value;
+        };
+
         var backgroundPanel = dialog.add("panel", undefined, "Background");
         backgroundPanel.alignChildren = ["fill", "top"];
         backgroundPanel.margins = 14;
@@ -210,6 +252,9 @@
             var dynamicAmount = parseNumber(dynamicAmountField.text);
             var rotationEnabled = rotationEnabledField.value;
             var rotationAngle = parseSignedNumber(rotationAngleField.text);
+            var sineEnabled = sineEnabledField.value;
+            var sineAmplitude = parseNumber(sineAmplitudeField.text);
+            var sineFrequency = parseNumber(sineFrequencyField.text);
 
             if (!matrixSize || !isValidDimension(matrixSize.cols, MAX_DIMENSION) || !isValidDimension(matrixSize.rows, MAX_DIMENSION)) {
                 alert("Matrix size must be like 10x10 or 12. Each dimension must be from 1 to " + MAX_DIMENSION + ".");
@@ -255,6 +300,23 @@
                 rotationAngle = 0;
             }
 
+            if (sineEnabled && (sineAmplitude === null || sineAmplitude < 0 || sineAmplitude > 1000)) {
+                alert("Sine wave amplitude must be a number from 0 to 1000 pixels.");
+                sineAmplitudeField.active = true;
+                return;
+            }
+
+            if (sineEnabled && (sineFrequency === null || sineFrequency < 0.1 || sineFrequency > 100)) {
+                alert("Sine wave frequency must be a number from 0.1 to 100.");
+                sineFrequencyField.active = true;
+                return;
+            }
+
+            if (!sineEnabled) {
+                sineAmplitude = 0;
+                sineFrequency = 0;
+            }
+
             var outerRadii = buildOuterRadii(matrixSize.cols, OUTER_RADIUS, dynamicEnabled, dynamicAmount);
             var maxOuterRadius = maxNumber(outerRadii);
 
@@ -265,7 +327,7 @@
             }
 
             var width = calculateMatrixWidth(outerRadii, gap, padding);
-            var height = calculateMatrixHeight(matrixSize.rows, maxOuterRadius, gap, padding);
+            var height = calculateMatrixHeight(matrixSize.rows, maxOuterRadius, gap, padding, sineAmplitude);
 
             if (width > MAX_CANVAS_PIXELS || height > MAX_CANVAS_PIXELS) {
                 alert(
@@ -292,6 +354,9 @@
                 dynamicAmount: dynamicAmount,
                 rotationEnabled: rotationEnabled,
                 rotationAngle: rotationAngle,
+                sineEnabled: sineEnabled,
+                sineAmplitude: sineAmplitude,
+                sineFrequency: sineFrequency,
                 backgroundEnabled: backgroundEnabledField.value,
                 backgroundColor: null
             };
@@ -508,6 +573,14 @@
         return rotationAngle * calculateRowWave(col, cols);
     }
 
+    function calculateSineWaveOffset(col, cols, sineEnabled, amplitude, frequency) {
+        if (!sineEnabled || amplitude <= 0 || frequency <= 0 || cols < 2) {
+            return 0;
+        }
+
+        return amplitude * Math.sin((col / (cols - 1)) * Math.PI * 2 * frequency);
+    }
+
     function calculateRowWave(col, cols) {
         if (cols < 3) {
             return 0;
@@ -530,8 +603,8 @@
         return width;
     }
 
-    function calculateMatrixHeight(rows, maxRadius, gap, padding) {
-        return padding * 2 + rows * maxRadius * 2 + (rows - 1) * gap;
+    function calculateMatrixHeight(rows, maxRadius, gap, padding, sineAmplitude) {
+        return padding * 2 + sineAmplitude * 2 + rows * maxRadius * 2 + (rows - 1) * gap;
     }
 
     function isValidGapForMatrix(outerRadii, rows, maxRadius, gap) {
