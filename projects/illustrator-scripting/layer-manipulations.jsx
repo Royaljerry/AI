@@ -1,4 +1,4 @@
-// Removes "copy" fragments from layer names, skipping underscore-prefixed layers.
+// Removes trailing "copy" fragments from layer names, skipping underscore-prefixed layers.
 // Run in Adobe Illustrator via File > Scripts > Other Script.
 
 (function () {
@@ -41,10 +41,10 @@
     }
 
     function removeCopyFromLayerName(layer) {
-        var copyIndex = layer.name.lastIndexOf("copy");
+        var cleanedName = layer.name.replace(/(\s+copy(?:\s+\d+)*)+$/i, "");
 
-        if (copyIndex >= 0) {
-            layer.name = layer.name.substring(0, copyIndex);
+        if (cleanedName !== layer.name) {
+            layer.name = cleanedName;
         }
     }
 }());
